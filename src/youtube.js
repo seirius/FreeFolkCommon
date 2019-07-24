@@ -36,7 +36,7 @@ function idToURL(args) {
 let LOCAL_CREDENTIALS;
 
 const YOUTUBE = (args) => {
-    const { CREDENTIALS, ffmpegPaths } = args;
+    const { CREDENTIALS, ffmpegPaths, tmpDir } = args;
     if (CREDENTIALS) {
         LOCAL_CREDENTIALS = CREDENTIALS;
     }
@@ -179,8 +179,8 @@ const YOUTUBE = (args) => {
                 let dataRead = 0;
                 let auxPath = savePath;
                 let auxTitle = videoTitle;
-                if (pipe) {
-                    auxPath = path.join(__dirname, "..", "tmp");
+                if (pipe && tmpDir) {
+                    auxPath = tmpDir;
                     auxTitle = uuid();
                 }
 
@@ -205,7 +205,8 @@ const YOUTUBE = (args) => {
                 })
                 .then(response => {
                     const fileName = safeFilename(auxTitle);
-                    const ff = ffmpeg(path.join(auxPath, `${fileName}.mp4`))
+                    const videoPath = path.join(auxPath, `${fileName}.mp4`);
+                    const ff = ffmpeg(videoPath)
                     .format("mp3")
                     .on("progress", progress => {
                         if (downloadProgressCallback) {
@@ -222,8 +223,14 @@ const YOUTUBE = (args) => {
                     } else {
                         ff.save(path.join(savePath, `${fileName}.mp3`));
                     }
-                    ff.on("end", resolve)
-                    .on("error", reject);
+                    ff.on("end", () => {
+                        fs.unlink(videoPath);
+                        resolve();
+                    })
+                    .on("error", error => {
+                        fs.unlink(videoPath);
+                        reject(error);
+                    });
                 }).catch(reject);
             });
         },
