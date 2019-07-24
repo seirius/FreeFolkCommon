@@ -11,6 +11,8 @@ const ffmpeg = require("fluent-ffmpeg");
 const { google } = require("googleapis");
 const youtube = google.youtube("v3");
 
+const uuid = require("uuid/v1");
+
 function youtubeDurationToFf(duration) {
     if (duration) {
         return moment.duration(duration).format("hh:mm:ss");
@@ -20,6 +22,15 @@ function youtubeDurationToFf(duration) {
 
 function safeFilename(oFilaname) {
     return oFilaname.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+}
+
+function idToURL(args) {
+    const { id } = args;
+    let url = new URL("https://www.youtube.com/watch");
+    if (id) {
+        url.searchParams.append("v", id);
+    }
+    return url;
 }
 
 let LOCAL_CREDENTIALS;
@@ -37,7 +48,9 @@ const YOUTUBE = (args) => {
             ffmpeg.setFfmpegPath(windowsPath);
         }
     }
-    return {
+    const aux = {
+        idToURL,
+        safeFilename,
         getVideosInfo: (args) => {
             const { ids } = args;
             let videos = [];
@@ -62,9 +75,9 @@ const YOUTUBE = (args) => {
                             if (data && data.items && data.items.length) {
                                 videos = data.items.map(item => {
                                     let thumbnails = item.snippet.thumbnails;
-                                    let url = new URL("https://www.youtube.com/watch");
-                                    url.searchParams.append("v", item.id);
+                                    let url = idToURL({id: item.id});
                                     return {
+                                        id: item.id,
                                         title: item.snippet.title,
                                         video_url: url.href,
                                         thumbnail_url: thumbnails ? thumbnails.high.url : "",
@@ -94,7 +107,7 @@ const YOUTUBE = (args) => {
                             reject(err);
                         } else {
                             if (response.data && response.data.items) {
-                                YOUTUBE.getVideosInfo({
+                                aux.getVideosInfo({
                                     ids: response.data.items.map(item => item.snippet.resourceId.videoId)
                                 }).then(resolve).catch(reject);
                             }
@@ -120,7 +133,7 @@ const YOUTUBE = (args) => {
                             reject(err);
                         } else {
                             if (response.data && response.data.items) {
-                                YOUTUBE.getVideosInfo({
+                               aux.getVideosInfo({
                                     ids: response.data.items.map(item => item.id.videoId)
                                 }).then(resolve).catch(reject);
                             } else {
@@ -135,9 +148,15 @@ const YOUTUBE = (args) => {
         },
         downloadVideo: (args) => {
             return new Promise((resolve, reject) => {
-                const { videoUrl, videoTitle, savePath, downloadProgressCallback } = args;
+                let { videoUrl, videoTitle, savePath, downloadProgressCallback, pipe, id } = args;
+                if (id) {
+                    videoUrl = idToURL({id}).href;
+                }
                 const vid = ytdl(videoUrl);
-                vid.pipe(fs.createWriteStream(path.join(savePath, safeFilename(videoTitle) + ".mp4")));
+                if (!pipe) {
+                    pipe = fs.createWriteStream(path.join(savePath, safeFilename(videoTitle) + ".mp4"));
+                }
+                vid.pipe(pipe);
                 vid.on("response", response => {
                     if (downloadProgressCallback) {
                         let dataRead = 0;
@@ -156,39 +175,56 @@ const YOUTUBE = (args) => {
         },
         downloadMusic: (args) => {
             return new Promise((resolve, reject) => {
-                const { savePath, videoTitle, videoUrl, downloadProgressCallback } = args;
+                let { savePath, videoTitle, videoUrl, downloadProgressCallback, pipe, id } = args;
                 let dataRead = 0;
-                downloadVideo({
-                    savePath,
-                    videoTitle,
-                    videoUrl,
-                    downloadProgressCallback: callbackArgs => {
-                        dataRead = (callbackArgs.progress / 2);
-                        downloadProgressCallback({
-                            progress: dataRead,
-                            videoProgress: callbackArgs.progress,
-                            musicProgress: 0
-                        });
-                    }
+                let auxPath = savePath;
+                let auxTitle = videoTitle;
+                if (pipe) {
+                    auxPath = path.join(__dirname, "..", "tmp");
+                    auxTitle = uuid();
+                }
+
+                if (id) {
+                    videoUrl = idToURL({id}).href;
+                }
+
+                const videoDwnProgress = (callbackArgs) => {
+                    dataRead = (callbackArgs.progress / 2);
+                    downloadProgressCallback({
+                        progress: dataRead,
+                        videoProgress: callbackArgs.progress,
+                        musicProgress: 0
+                    });
+                };
+
+                aux.downloadVideo({
+                    savePath: auxPath,
+                    videoTitle: auxTitle,
+                    videoUrl: videoUrl,
+                    downloadProgressCallback: downloadProgressCallback ? videoDwnProgress : null
                 })
-                    .then(response => {
-                        const fileName = safeFilename(videoTitle);
-                        const videoPath = path.join(savePath, `${fileName}.mp4`);
-                        const mp3Path = path.join(savePath, `${fileName}.mp3`);
-                        ffmpeg(videoPath)
-                        .format("mp3")
-                        .on("progress", progress => {
+                .then(response => {
+                    const fileName = safeFilename(auxTitle);
+                    const ff = ffmpeg(path.join(auxPath, `${fileName}.mp4`))
+                    .format("mp3")
+                    .on("progress", progress => {
+                        if (downloadProgressCallback) {
                             dataRead += (progress.percent / 2);
                             downloadProgressCallback({
                                 progress: dataRead,
                                 musicProgress: progress.percent,
                                 videoProgress: 100
                             });
-                        })
-                        .save(mp3Path)
-                        .on("end", resolve)
-                        .on("error", reject);
-                    }).catch(reject);
+                        }
+                    });
+                    if (pipe) {
+                        ff.pipe(pipe);
+                    } else {
+                        ff.save(path.join(savePath, `${fileName}.mp3`));
+                    }
+                    ff.on("end", resolve)
+                    .on("error", reject);
+                }).catch(reject);
             });
         },
         getItemDiskInformation: async function getItemDiskInformation(args) {
@@ -208,7 +244,8 @@ const YOUTUBE = (args) => {
             }
             return info;
         }
-    }
+    };
+    return aux;
 };
 
 exports.YOUTUBE = YOUTUBE;
