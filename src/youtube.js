@@ -148,10 +148,12 @@ const YOUTUBE = (args) => {
         },
         downloadVideo: (args) => {
             return new Promise((resolve, reject) => {
-                let { videoUrl, videoTitle, savePath, downloadProgressCallback, pipe, id } = args;
-                if (id) {
-                    videoUrl = idToURL({id}).href;
+                let { videoTitle, savePath, downloadProgressCallback, pipe, id } = args;
+                if (!id) {
+                    reject("No ID defined");
+                    return;
                 }
+                let videoUrl = idToURL({id}).href;
                 const vid = ytdl(videoUrl);
                 if (!pipe) {
                     pipe = fs.createWriteStream(path.join(savePath, safeFilename(videoTitle) + ".mp4"));
@@ -175,17 +177,19 @@ const YOUTUBE = (args) => {
         },
         downloadMusic: (args) => {
             return new Promise((resolve, reject) => {
-                let { savePath, videoTitle, videoUrl, downloadProgressCallback, pipe, id } = args;
+                let { savePath, videoTitle, downloadProgressCallback, pipe, id } = args;
+
+                if (!id) {
+                    reject("No ID defined");
+                    return;
+                }
+
                 let dataRead = 0;
                 let auxPath = savePath;
                 let auxTitle = videoTitle;
                 if (pipe && tmpDir) {
                     auxPath = tmpDir;
                     auxTitle = uuid();
-                }
-
-                if (id) {
-                    videoUrl = idToURL({id}).href;
                 }
 
                 const videoDwnProgress = (callbackArgs) => {
@@ -200,7 +204,7 @@ const YOUTUBE = (args) => {
                 aux.downloadVideo({
                     savePath: auxPath,
                     videoTitle: auxTitle,
-                    videoUrl: videoUrl,
+                    id: id,
                     downloadProgressCallback: downloadProgressCallback ? videoDwnProgress : null
                 })
                 .then(response => {
@@ -224,11 +228,15 @@ const YOUTUBE = (args) => {
                         ff.save(path.join(savePath, `${fileName}.mp3`));
                     }
                     ff.on("end", () => {
-                        fs.unlink(videoPath);
+                        if (pipe) {
+                            fs.unlink(videoPath, () => console.log(`tmp delete success ${auxPath}/${fileName}.mp4`));
+                        }
                         resolve();
                     })
                     .on("error", error => {
-                        fs.unlink(videoPath);
+                        if (pipe) {
+                            fs.unlink(videoPath, () => console.log(`tmp delete success ${auxPath}/${fileName}.mp4`));
+                        }
                         reject(error);
                     });
                 }).catch(reject);
