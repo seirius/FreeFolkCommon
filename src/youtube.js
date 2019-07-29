@@ -81,7 +81,8 @@ const YOUTUBE = (args) => {
                                         title: item.snippet.title,
                                         video_url: url.href,
                                         thumbnail_url: thumbnails ? thumbnails.high.url : "",
-                                        duration: youtubeDurationToFf(item.contentDetails.duration)
+                                        duration: youtubeDurationToFf(item.contentDetails.duration),
+                                        disabled: false
                                     };
                                 });
                             }
