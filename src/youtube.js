@@ -259,6 +259,33 @@ const YOUTUBE = (args) => {
                 }));
             }
             return info;
+        },
+        getDefVideoItem: function () {
+            return {
+                title: "",
+                video_url: "",
+                thumbnail_url: "",
+                duration: "",
+                diskInfo: {
+                    mp3: false,
+                    mp4: false
+                },
+                disabled: false,
+                dwnProgress: {
+                    progress: 0,
+                    downloading: false,
+                    video: {
+                        progress: 0,
+                        loading: false,
+                        indeterminate: false
+                    },
+                    music: {
+                        progress: 0,
+                        loading: false,
+                        indeterminate: false
+                    }
+                }
+            };
         }
     };
     return aux;
