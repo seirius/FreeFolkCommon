@@ -1,6 +1,6 @@
 {
   "name": "freefolkcommon",
-  "version": "1.0.01",
+  "version": "1.0.02",
   "description": "Free Folk Common tools",
   "main": "src/main.js",
   "scripts": {
@@ -26,16 +26,15 @@
     "googleapis": "^39.2.0",
     "moment": "^2.24.0",
     "moment-duration-format": "^2.3.2",
-    "ytdl-core": "^0.29.3"
+    "ytdl-core": "^0.29.3",
+    "request": "^2.88.0"
   },
   "peerDependencies": {
     "fluent-ffmpeg": "^2.1.2",
     "googleapis": "^39.2.0",
     "moment": "^2.24.0",
     "moment-duration-format": "^2.3.2",
-    "ytdl-core": "^0.29.3"
-  },
-  "dependencies": {
+    "ytdl-core": "^0.29.3",
     "request": "^2.88.0"
   }
 }
