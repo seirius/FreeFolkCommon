@@ -1,6 +1,6 @@
 {
   "name": "freefolkcommon",
-  "version": "1.0.02",
+  "version": "1.0.20",
   "description": "Free Folk Common tools",
   "main": "src/main.js",
   "scripts": {

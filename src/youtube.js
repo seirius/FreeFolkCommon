@@ -228,18 +228,8 @@ const YOUTUBE = (args) => {
                     } else {
                         ff.save(path.join(savePath, `${fileName}.mp3`));
                     }
-                    ff.on("end", () => {
-                        if (pipe) {
-                            fs.unlink(videoPath, () => console.log(`tmp delete success ${auxPath}/${fileName}.mp4`));
-                        }
-                        resolve();
-                    })
-                    .on("error", error => {
-                        if (pipe) {
-                            fs.unlink(videoPath, () => console.log(`tmp delete success ${auxPath}/${fileName}.mp4`));
-                        }
-                        reject(error);
-                    });
+                    ff.on("end", resolve)
+                    .on("error", reject);
                 }).catch(reject);
             });
         },
